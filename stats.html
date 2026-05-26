@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学习统计 · LC3000</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 热力图 */
+    .heatmap {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .hm-cell {
+      aspect-ratio: 1;
+      border-radius: 4px;
+      position: relative;
+      cursor: default;
+      transition: transform .15s;
+    }
+    .hm-cell:hover { transform:scale(1.2); z-index:2; }
+    .hm-cell[title]:hover::after {
+      content: attr(title);
+      position:absolute; bottom:calc(100% + 6px); left:50%;
+      transform:translateX(-50%);
+      background:var(--text); color:#fff;
+      padding:4px 10px; border-radius:6px; font-size:12px;
+      white-space:nowrap; z-index:100; pointer-events:none;
+    }
+
+    /* 柱状图 */
+    .bar-chart { display:flex; align-items:flex-end; gap:5px; height:110px; }
+    .bc-col    { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+    .bc-bar    { width:100%; min-height:3px; background:var(--primary); border-radius:4px 4px 0 0; opacity:.75; transition:height .4s ease; }
+    .bc-bar:hover { opacity:1; }
+    .bc-val    { font-size:10px; color:var(--text-muted); margin-bottom:3px; }
+    .bc-label  { font-size:10px; color:var(--text-muted); margin-top:4px; white-space:nowrap; }
+
+    /* 频率进度 */
+    .fp-row { margin-bottom:14px; }
+    .fp-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:13px; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">📚
+  <a href="index.html" class="nav-brand">&nbsp;&nbsp;Longman Communication 3000</a>
+  <ul class="nav-menu">
+    <li><a href="index.html">🏠 首页</a></li>
+    <li><a href="wordlist.html">📖 单词表</a></li>
+    <li><a href="study.html">🎯 背单词</a></li>
+    <li><a href="stats.html">📊 统计</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">学习统计</h1>
+    <p class="page-subtitle">追踪你的进度与掌握情况</p>
+  </div>
+
+  <!-- 顶部数字 -->
+  <div class="grid grid-4" style="margin-bottom:28px;">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--warning-light);">🔥</div>
+      <div><div class="stat-value" id="st-streak">0</div><div class="stat-label">当前连续天数</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--success-light);">📝</div>
+      <div><div class="stat-value" id="st-reviews">0</div><div class="stat-label">总复习次数</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--primary-light);">🎯</div>
+      <div><div class="stat-value" id="st-acc">0%</div><div class="stat-label">平均正确率</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--purple-light);">📅</div>
+      <div><div class="stat-value" id="st-days">0</div><div class="stat-label">累计学习天数</div></div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="margin-bottom:28px;">
+
+    <!-- 掌握情况 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">词汇掌握分布</span>
+        <span id="prog-pct" style="font-size:13px;color:var(--primary);font-weight:600;"></span>
+      </div>
+
+      <!-- SVG 环形图 -->
+      <div style="text-align:center;margin-bottom:16px;">
+        <svg id="donut-svg" width="160" height="160" viewBox="0 0 160 160"></svg>
+      </div>
+
+      <div id="mastery-legend"></div>
+    </div>
+
+    <!-- 频率分布 -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">各频率进度</span></div>
+      <div id="freq-bars"></div>
+    </div>
+
+  </div>
+
+  <!-- 热力图 -->
+  <div class="card" style="margin-bottom:28px;">
+    <div class="card-header"><span class="card-title">近30天学习热力图</span></div>
+    <div style="overflow-x:auto;padding-bottom:4px;">
+      <div style="min-width:360px;">
+        <div id="hm-days" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;"></div>
+        <div class="heatmap" id="heatmap"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--text-muted);">
+          少
+          <div style="width:13px;height:13px;border-radius:3px;background:#e9ecef;"></div>
+          <div style="width:13px;height:13px;border-radius:3px;background:#bfdbfe;"></div>
+          <div style="width:13px;height:13px;border-radius:3px;background:#60a5fa;"></div>
+          <div style="width:13px;height:13px;border-radius:3px;background:#3b82f6;"></div>
+          <div style="width:13px;height:13px;border-radius:3px;background:#1d4ed8;"></div>
+          多
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 近7天柱状图 -->
+  <div class="card" style="margin-bottom:28px;">
+    <div class="card-header"><span class="card-title">近7天每日学习量</span></div>
+    <div class="bar-chart" id="bar-chart"></div>
+  </div>
+
+  <!-- 危险区 -->
+  <div class="card" style="border-color:#fca5a5;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-weight:600;color:var(--danger);margin-bottom:4px;">⚠️ 重置学习数据</div>
+        <div style="font-size:13px;color:var(--text-secondary);">清除所有进度记录，此操作不可撤销</div>
+      </div>
+      <button class="btn" style="background:var(--danger-light);color:var(--danger);" onclick="resetAll()">重置数据</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="words.js"></script>
+<script src="utils.js"></script>
+<script>
+function renderAll() {
+  const stats  = Progress.getStats(WORD_LIST);
+  const streak = Streak.get();
+  const hist   = History.getAll();
+  const prg    = Progress.getAll();
+
+  // 顶部数字
+  document.getElementById('st-streak').textContent = streak.count;
+  document.getElementById('st-days').textContent   = hist.length;
+
+  const totalRev = Object.values(prg).reduce((s,c) => s+(c.totalReviews||0), 0);
+  const totalOk  = Object.values(prg).reduce((s,c) => s+(c.correctReviews||0), 0);
+  document.getElementById('st-reviews').textContent = totalRev;
+  document.getElementById('st-acc').textContent = totalRev ? Math.round(totalOk/totalRev*100)+'%' : '—';
+
+  const pct = stats.total ? Math.round(stats.studied/stats.total*100) : 0;
+  document.getElementById('prog-pct').textContent = pct + '% 已接触';
+
+  // 环形图
+  drawDonut(stats);
+
+  // 频率进度
+  drawFreqBars(prg);
+
+  // 热力图
+  drawHeatmap();
+
+  // 柱状图
+  drawBarChart();
+}
+
+function drawDonut(stats) {
+  const levels = [
+    { label:'未学习',   n:stats.new,      c:'#e2e8f0' },
+    { label:'学习中',   n:stats.learning, c:'#fbbf24' },
+    { label:'初步掌握', n:stats.young,    c:'#60a5fa' },
+    { label:'较为熟悉', n:stats.mature,   c:'#a78bfa' },
+    { label:'已掌握',   n:stats.master,   c:'#34d399' }
+  ];
+  const cx=80,cy=80,R=66,r=44, total=stats.total||1;
+  let ang = -Math.PI/2;
+  let paths = '';
+
+  levels.forEach(lv => {
+    if (!lv.n) return;
+    const da  = lv.n/total * Math.PI*2;
+    const ea  = ang+da;
+    const la  = da>Math.PI?1:0;
+    const x1=cx+R*Math.cos(ang), y1=cy+R*Math.sin(ang);
+    const x2=cx+R*Math.cos(ea),  y2=cy+R*Math.sin(ea);
+    const ix1=cx+r*Math.cos(ea), iy1=cy+r*Math.sin(ea);
+    const ix2=cx+r*Math.cos(ang),iy2=cy+r*Math.sin(ang);
+    paths += `<path d="M${x1} ${y1} A${R} ${R} 0 ${la} 1 ${x2} ${y2} L${ix1} ${iy1} A${r} ${r} 0 ${la} 0 ${ix2} ${iy2}Z" fill="${lv.c}" opacity=".9"/>`;
+    ang = ea;
+  });
+
+  document.getElementById('donut-svg').innerHTML = `
+    ${paths}
+    <circle cx="${cx}" cy="${cy}" r="${r-5}" fill="white"/>
+    <text x="${cx}" y="${cy-8}"  text-anchor="middle" font-size="24" font-weight="700" fill="#1e293b">${stats.studied}</text>
+    <text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="12" fill="#64748b">已接触</text>
+    <text x="${cx}" y="${cy+28}" text-anchor="middle" font-size="11" fill="#94a3b8">/ ${stats.total}</text>
+  `;
+
+  document.getElementById('mastery-legend').innerHTML = levels.map(lv => {
+    const w = stats.total ? Math.round(lv.n/stats.total*100) : 0;
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:11px;height:11px;border-radius:3px;background:${lv.c};"></div>
+          <span style="font-size:13px;color:var(--text-secondary);">${lv.label}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:72px;height:5px;background:var(--border-light);border-radius:100px;overflow:hidden;">
+            <div style="height:100%;width:${w}%;background:${lv.c};border-radius:100px;"></div>
+          </div>
+          <span style="font-size:13px;font-weight:500;min-width:26px;text-align:right;">${lv.n}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function drawFreqBars(prg) {
+  const groups = [
+    { key:'S1', label:'口语S1', c:'#ef4444' },
+    { key:'S2', label:'口语S2', c:'#f97316' },
+    { key:'S3', label:'口语S3', c:'#eab308' },
+    { key:'W1', label:'书面W1', c:'#4361ee' },
+    { key:'W2', label:'书面W2', c:'#8b5cf6' },
+    { key:'W3', label:'书面W3', c:'#10b981' }
+  ];
+  let html = '';
+  groups.forEach(g => {
+    const ws = WORD_LIST.filter(w => w.frequency.includes(g.key));
+    if (!ws.length) return;
+    const done = ws.filter(w => prg[w.id]?.totalReviews > 0).length;
+    const pct  = Math.round(done/ws.length*100);
+    html += `
+      <div class="fp-row">
+        <div class="fp-top">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="freq-tag freq-${g.key.toLowerCase()}">${g.key}</span>
+            <span style="color:var(--text-secondary);">${g.label}</span>
+          </div>
+          <span style="font-weight:500;">${done} / ${ws.length}</span>
+        </div>
+        <div class="progress">
+          <div class="progress-bar" style="width:${pct}%;background:${g.c};"></div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('freq-bars').innerHTML = html || '<p style="color:var(--text-muted);font-size:13px;">暂无词频数据</p>';
+}
+
+function drawHeatmap() {
+  const data = History.getLast(30);
+  const days = ['日','一','二','三','四','五','六'];
+  document.getElementById('hm-days').innerHTML =
+    days.map(d=>`<div style="text-align:center;font-size:11px;color:var(--text-muted);">${d}</div>`).join('');
+
+  const maxN  = Math.max(...data.map(d=>d.wordsStudied), 1);
+  const first = new Date(data[0].date);
+  const dow   = first.getDay();
+  const colors= ['#e9ecef','#bfdbfe','#93c5fd','#3b82f6','#1d4ed8'];
+  let html = '';
+  for (let i=0;i<dow;i++) html += '<div></div>';
+  data.forEach(d => {
+    const lv = d.wordsStudied===0 ? 0 : Math.min(4, Math.ceil(d.wordsStudied/maxN*4));
+    html += `<div class="hm-cell" style="background:${colors[lv]};" title="${d.date.slice(5)}: ${d.wordsStudied}词"></div>`;
+  });
+  document.getElementById('heatmap').innerHTML = html;
+}
+
+function drawBarChart() {
+  const data = History.getLast(7);
+  const maxN = Math.max(...data.map(d=>d.wordsStudied), 1);
+  document.getElementById('bar-chart').innerHTML = data.map(d => {
+    const h  = d.wordsStudied ? Math.max(6, Math.round(d.wordsStudied/maxN*100)) : 2;
+    const dt = new Date(d.date);
+    const lb = (dt.getMonth()+1)+'/'+ dt.getDate();
+    return `
+      <div class="bc-col" title="${d.date}: ${d.wordsStudied}词">
+        <div class="bc-val">${d.wordsStudied||''}</div>
+        <div class="bc-bar" style="height:${h}%;"></div>
+        <div class="bc-label">${lb}</div>
+      </div>`;
+  }).join('');
+}
+
+function resetAll() {
+  if (!confirm('确认清除所有学习数据？此操作不可撤销！')) return;
+  [STORAGE_KEYS.PROGRESS, STORAGE_KEYS.HISTORY, STORAGE_KEYS.STREAK].forEach(k => Storage.remove(k));
+  UI.toast('学习数据已重置', 'success');
+  renderAll();
+}
+
+renderAll();
+</script>
+</body>
+</html>

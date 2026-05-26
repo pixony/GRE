@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>背单词 · LC3000</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .study-wrap { max-width:660px; margin:0 auto; }
+
+    /* 模式选择 */
+    .mode-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px; }
+    .mode-card {
+      padding:22px 14px; border-radius:var(--radius); border:2px solid var(--border);
+      cursor:pointer; text-align:center; background:#fff; transition:var(--transition);
+    }
+    .mode-card:hover,.mode-card.sel { border-color:var(--primary); background:var(--primary-light); }
+    .mode-card .mi { font-size:34px; margin-bottom:10px; }
+    .mode-card .mt { font-size:15px; font-weight:600; margin-bottom:5px; }
+    .mode-card .md { font-size:12px; color:var(--text-secondary); }
+
+    .batch-row { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:24px; font-size:14px; color:var(--text-secondary); }
+    .batch-row input { width:72px; text-align:center; font-size:17px; font-weight:700; }
+
+    /* 进度条 */
+    .s-progress { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+    .s-pbar     { flex:1; height:8px; background:var(--border-light); border-radius:100px; overflow:hidden; }
+    .s-pfill    { height:100%; background:linear-gradient(90deg,var(--primary),var(--purple)); border-radius:100px; transition:width .4s ease; }
+    .s-ptext    { font-size:13px; color:var(--text-secondary); white-space:nowrap; }
+
+    /* 得分栏 */
+    .score-bar { display:flex; justify-content:center; gap:22px; font-size:13px; margin-bottom:18px; }
+
+    /* 卡片翻转 */
+    .card-wrap {
+      perspective:1200px; height:330px;
+      cursor:pointer; margin-bottom:24px;
+    }
+    .flash-card {
+      position:relative; width:100%; height:100%;
+      transform-style:preserve-3d;
+      transition:transform .5s cubic-bezier(.4,.2,.2,1);
+    }
+    .flash-card.flipped { transform:rotateY(180deg); }
+    .card-face {
+      position:absolute; width:100%; height:100%;
+      backface-visibility:hidden; -webkit-backface-visibility:hidden;
+      border-radius:var(--radius-lg); padding:32px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      box-shadow:var(--shadow-lg); border:1px solid var(--border);
+    }
+    .card-front { background:#fff; }
+    .card-back  { background:linear-gradient(135deg,#f8f9ff,#eef0fd); transform:rotateY(180deg); }
+
+    .c-word  { font-size:46px; font-weight:800; text-align:center; margin-bottom:10px; }
+    .c-phon  { font-size:18px; color:var(--text-secondary); margin-bottom:16px; }
+    .c-hint  { font-size:13px; color:var(--text-muted); text-align:center; margin-top:10px; }
+
+    .cb-word { font-size:26px; font-weight:700; text-align:center; margin-bottom:2px; }
+    .cb-phon { font-size:15px; color:var(--text-secondary); text-align:center; margin-bottom:12px; }
+    .cb-pos  { text-align:center; margin-bottom:14px; }
+    .cb-def  { font-size:14px; line-height:1.6; padding:10px 14px; background:#fff; border-radius:var(--radius-sm); margin-bottom:8px; }
+    .cb-ex   { font-size:13px; color:var(--text-secondary); font-style:italic; padding:8px 14px; background:rgba(255,255,255,.7); border-radius:var(--radius-sm); border-left:3px solid var(--primary); margin-bottom:8px; }
+    .cb-syn  { font-size:12px; color:var(--text-muted); text-align:center; }
+    .cb-body { width:100%; max-height:210px; overflow-y:auto; }
+
+    /* 评分按钮 */
+    .rating-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+    .r-btn {
+      padding:14px 8px; border:none; border-radius:var(--radius);
+      cursor:pointer; font-size:13px; font-weight:600;
+      transition:var(--transition); text-align:center;
+    }
+    .r-btn:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
+    .r-btn .rl { display:block; font-size:14px; margin-bottom:2px; }
+    .r-btn .ri { display:block; font-size:11px; opacity:.8; }
+    .r-again { background:#fee2e2; color:#dc2626; }
+    .r-hard  { background:#fef3c7; color:#d97706; }
+    .r-good  { background:var(--success-light); color:#059669; }
+    .r-easy  { background:var(--purple-light);  color:#7c3aed; }
+
+    .key-hints { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; }
+    .kh { font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
+    .kb { padding:2px 7px; border:1px solid var(--border); border-radius:4px; font-size:11px; font-family:monospace; background:#fff; }
+
+    /* 完成画面 */
+    .done-wrap { text-align:center; padding:40px 20px; }
+    .done-icon  { font-size:68px; margin-bottom:14px; }
+    .done-title { font-size:26px; font-weight:700; margin-bottom:6px; }
+    .done-sub   { font-size:15px; color:var(--text-secondary); margin-bottom:28px; }
+    .done-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:28px; }
+    .ds { padding:16px; background:var(--bg); border-radius:var(--radius-sm); text-align:center; }
+    .ds .dv { font-size:28px; font-weight:700; color:var(--primary); }
+    .ds .dl { font-size:13px; color:var(--text-secondary); margin-top:4px; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">📚
+  <a href="index.html" class="nav-brand">&nbsp;&nbsp;Longman Communication 3000</a>
+  <ul class="nav-menu">
+    <li><a href="index.html">🏠 首页</a></li>
+    <li><a href="wordlist.html">📖 单词表</a></li>
+    <li><a href="study.html">🎯 背单词</a></li>
+    <li><a href="stats.html">📊 统计</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+<div class="study-wrap">
+
+  <!-- ① 模式选择 -->
+  <div id="screen-mode">
+    <div class="page-header">
+      <h1 class="page-title">背单词</h1>
+      <p class="page-subtitle">选择学习模式，开始今天的练习</p>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><span class="card-title">学习模式</span></div>
+      <div class="mode-grid">
+        <div class="mode-card sel" data-mode="due" onclick="selMode('due',this)">
+          <div class="mi">🔄</div>
+          <div class="mt">到期复习</div>
+          <div class="md">复习今日到期单词</div>
+          <div style="margin-top:10px;" id="badge-due"></div>
+        </div>
+        <div class="mode-card" data-mode="new" onclick="selMode('new',this)">
+          <div class="mi">✨</div>
+          <div class="mt">学习新词</div>
+          <div class="md">从未学过的单词</div>
+          <div style="margin-top:10px;" id="badge-new"></div>
+        </div>
+        <div class="mode-card" data-mode="all" onclick="selMode('all',this)">
+          <div class="mi">📚</div>
+          <div class="mt">随机练习</div>
+          <div class="md">随机全部单词</div>
+          <div style="margin-top:10px;" id="badge-all"></div>
+        </div>
+      </div>
+
+      <div class="batch-row">
+        <span>每次学习</span>
+        <input type="number" class="input" id="batch-n" value="20" min="5" max="100">
+        <span>个单词</span>
+      </div>
+
+      <div style="text-align:center;">
+        <button class="btn btn-primary btn-lg" onclick="startStudy()">🎯 开始学习</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">当前队列</span></div>
+      <div id="queue-info"></div>
+    </div>
+  </div>
+
+  <!-- ② 学习中 -->
+  <div id="screen-study" style="display:none;">
+    <div class="s-progress">
+      <button class="btn btn-ghost btn-sm" onclick="exitStudy()">← 退出</button>
+      <div class="s-pbar"><div class="s-pfill" id="spfill" style="width:0%"></div></div>
+      <span class="s-ptext" id="sptext">0/0</span>
+    </div>
+
+    <div class="score-bar">
+      <span style="color:#dc2626;">❌ <span id="cnt-again">0</span></span>
+      <span style="color:#d97706;">😓 <span id="cnt-hard">0</span></span>
+      <span style="color:#059669;">✅ <span id="cnt-good">0</span></span>
+      <span style="color:#7c3aed;">⚡ <span id="cnt-easy">0</span></span>
+    </div>
+
+    <!-- 卡片 -->
+    <div class="card-wrap" id="card-wrap" onclick="flip()">
+      <div class="flash-card" id="flash-card">
+        <!-- 正面 -->
+        <div class="card-face card-front">
+          <div style="position:absolute;top:18px;right:18px;" id="front-tags"></div>
+          <div class="c-word"  id="c-word">word</div>
+          <div class="c-phon"  id="c-phon">/phonetic/</div>
+          <div class="c-hint">点击卡片 / 按空格键 查看释义</div>
+        </div>
+        <!-- 背面 -->
+        <div class="card-face card-back">
+          <div class="cb-body" id="cb-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 评分 -->
+    <div id="rating-area" style="display:none;">
+      <p style="text-align:center;font-size:13px;color:var(--text-secondary);margin-bottom:14px;">记住这个单词了吗？</p>
+      <div class="rating-grid">
+        <button class="r-btn r-again" onclick="rate(0)"><span class="rl">❌ 不会</span><span class="ri" id="iv-0">重学</span></button>
+        <button class="r-btn r-hard"  onclick="rate(1)"><span class="rl">😓 较难</span><span class="ri" id="iv-1">明天</span></button>
+        <button class="r-btn r-good"  onclick="rate(2)"><span class="rl">✅ 记得</span><span class="ri" id="iv-2">4天后</span></button>
+        <button class="r-btn r-easy"  onclick="rate(3)"><span class="rl">⚡ 很熟</span><span class="ri" id="iv-3">7天后</span></button>
+      </div>
+      <div class="key-hints">
+        <span class="kh"><span class="kb">1</span>不会</span>
+        <span class="kh"><span class="kb">2</span>较难</span>
+        <span class="kh"><span class="kb">3</span>记得</span>
+        <span class="kh"><span class="kb">4</span>很熟</span>
+        <span class="kh"><span class="kb">Space</span>翻转</span>
+      </div>
+    </div>
+    <div id="flip-hint" style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:6px;">按空格键或点击卡片翻转</div>
+  </div>
+
+  <!-- ③ 完成 -->
+  <div id="screen-done" style="display:none;">
+    <div class="card">
+      <div class="done-wrap">
+        <div class="done-icon" id="d-icon">🎉</div>
+        <div class="done-title" id="d-title">本轮完成！</div>
+        <div class="done-sub"   id="d-sub">继续加油！</div>
+        <div class="done-stats">
+          <div class="ds"><div class="dv" id="d-total">0</div><div class="dl">学习单词</div></div>
+          <div class="ds"><div class="dv" id="d-ok" style="color:var(--success);">0</div><div class="dl">记住了</div></div>
+          <div class="ds"><div class="dv" id="d-acc">0%</div><div class="dl">正确率</div></div>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="startStudy()">🔄 再来一轮</button>
+          <a href="stats.html" class="btn btn-outline">📊 查看统计</a>
+          <a href="index.html" class="btn btn-ghost">🏠 首页</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="words.js"></script>
+<script src="utils.js"></script>
+<script>
+let mode  = 'due';
+let queue = [], idx = 0, flipped = false;
+let sc = { again:0, hard:0, good:0, easy:0 };
+
+/* — 模式选择 — */
+function selMode(m, el) {
+  mode = m;
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function initMode() {
+  const stats = Progress.getStats(WORD_LIST);
+  document.getElementById('badge-due').innerHTML = `<span class="badge badge-primary">${stats.due} 词</span>`;
+  document.getElementById('badge-new').innerHTML = `<span class="badge badge-success">${stats.new} 词</span>`;
+  document.getElementById('badge-all').innerHTML = `<span class="badge badge-gray">${stats.total} 词</span>`;
+
+  document.getElementById('queue-info').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+      <div style="text-align:center;padding:14px;background:var(--bg);border-radius:var(--radius-sm);">
+        <div style="font-size:26px;font-weight:700;color:var(--primary);">${stats.due}</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:3px;">待复习</div>
+      </div>
+      <div style="text-align:center;padding:14px;background:var(--bg);border-radius:var(--radius-sm);">
+        <div style="font-size:26px;font-weight:700;color:var(--success);">${stats.new}</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:3px;">新单词</div>
+      </div>
+      <div style="text-align:center;padding:14px;background:var(--bg);border-radius:var(--radius-sm);">
+        <div style="font-size:26px;font-weight:700;color:var(--purple);">${stats.master}</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:3px;">已掌握</div>
+      </div>
+    </div>`;
+}
+
+/* — 开始学习 — */
+function startStudy() {
+  const n = Math.max(1, parseInt(document.getElementById('batch-n').value) || 20);
+  const prg = Progress.getAll();
+  let pool;
+
+  if (mode === 'due') {
+    pool = WORD_LIST.filter(w => SM2.isDue(prg[w.id]));
+    pool.sort((a,b) => {
+      const ta = prg[a.id]?.nextReview ?? 0;
+      const tb = prg[b.id]?.nextReview ?? 0;
+      return ta - tb;
+    });
+  } else if (mode === 'new') {
+    pool = WORD_LIST.filter(w => !prg[w.id]);
+  } else {
+    pool = [...WORD_LIST].sort(() => Math.random()-.5);
+  }
+
+  if (!pool.length) { UI.toast('当前模式没有单词可以学习 😊', 'success'); return; }
+
+  queue = pool.slice(0, n);
+  idx = 0;
+  sc = { again:0, hard:0, good:0, easy:0 };
+
+  show('study');
+  showCard();
+}
+
+/* — 展示卡片 — */
+function showCard() {
+  if (idx >= queue.length) { finishSession(); return; }
+
+  const w = queue[idx];
+  flipped = false;
+  document.getElementById('flash-card').classList.remove('flipped');
+
+  document.getElementById('c-word').textContent = w.word;
+  document.getElementById('c-phon').textContent = '/' + w.phonetic + '/';
+  document.getElementById('front-tags').innerHTML = UI.freqTags(w.frequency);
+
+  // 背面内容
+  const defs = w.meanings.map((m,i) => `
+    <div class="cb-def">${w.meanings.length > 1 ? `<span style="font-size:11px;font-weight:700;color:var(--primary);margin-right:5px;">${i+1}.</span>` : ''}${m.definition}</div>
+    <div class="cb-ex">"${m.example}"</div>
+  `).join('');
+
+  document.getElementById('cb-body').innerHTML = `
+    <div class="cb-word">${w.word}</div>
+    <div class="cb-phon">/${w.phonetic}/</div>
+    <div class="cb-pos"><span style="padding:3px 12px;background:var(--primary-light);color:var(--primary);border-radius:100px;font-size:12px;font-weight:500;">${UI.posLabel(w.pos)}</span></div>
+    ${defs}
+    ${w.synonyms?.length ? `<div class="cb-syn">同义词：${w.synonyms.join('、')}</div>` : ''}
+  `;
+
+  // 预览间隔
+  const card = Progress.getCard(w.id) || SM2.createCard(w.id);
+  [0,1,2,3].forEach(q => {
+    const nxt = SM2.review(card, q);
+    document.getElementById(`iv-${q}`).textContent = UI.intervalLabel(nxt.interval);
+  });
+
+  // 隐藏评分，显示翻转提示
+  document.getElementById('rating-area').style.display = 'none';
+  document.getElementById('flip-hint').style.display = 'block';
+
+  // 进度
+  document.getElementById('spfill').style.width = (idx / queue.length * 100) + '%';
+  document.getElementById('sptext').textContent = `${idx}/${queue.length}`;
+}
+
+/* — 翻转 — */
+function flip() {
+  if (flipped) return;
+  flipped = true;
+  document.getElementById('flash-card').classList.add('flipped');
+  document.getElementById('rating-area').style.display = 'block';
+  document.getElementById('flip-hint').style.display = 'none';
+}
+
+/* — 评分 — */
+function rate(q) {
+  const w    = queue[idx];
+  const card = Progress.getCard(w.id) || SM2.createCard(w.id);
+  Progress.saveCard(SM2.review(card, q));
+
+  const keys = ['again','hard','good','easy'];
+  sc[keys[q]]++;
+  document.getElementById('cnt-'+keys[q]).textContent = sc[keys[q]];
+
+  idx++;
+  showCard();
+}
+
+/* — 完成 — */
+function finishSession() {
+  const total   = sc.again + sc.hard + sc.good + sc.easy;
+  const correct = sc.good + sc.easy;
+  const acc     = total ? Math.round(correct / total * 100) : 0;
+
+  History.addSession({ wordsStudied: total, correctCount: correct });
+  Streak.update();
+
+  document.getElementById('d-total').textContent = total;
+  document.getElementById('d-ok').textContent    = correct;
+  document.getElementById('d-acc').textContent   = acc + '%';
+
+  const [icon, title, sub] =
+    acc >= 90 ? ['🏆','太棒了！','你的记忆力真令人钦佩！'] :
+    acc >= 70 ? ['🎉','干得好！','继续保持，你做得很好！'] :
+    acc >= 50 ? ['💪','加油！','多次复习就能越来越熟练！'] :
+               ['📖','继续努力！','重复是记忆之母，坚持下去！'];
+
+  document.getElementById('d-icon').textContent  = icon;
+  document.getElementById('d-title').textContent = title;
+  document.getElementById('d-sub').textContent   = sub;
+
+  show('done');
+}
+
+function exitStudy() {
+  if (sc.again + sc.hard + sc.good + sc.easy > 0) {
+    const total = sc.again + sc.hard + sc.good + sc.easy;
+    History.addSession({ wordsStudied: total, correctCount: sc.good + sc.easy });
+  }
+  show('mode');
+  initMode();
+}
+
+function show(s) {
+  ['mode','study','done'].forEach(n =>
+    document.getElementById('screen-'+n).style.display = n===s ? 'block' : 'none'
+  );
+}
+
+/* — 键盘快捷键 — */
+document.addEventListener('keydown', e => {
+  if (document.getElementById('screen-study').style.display === 'none') return;
+  if (e.code === 'Space') { e.preventDefault(); if (!flipped) flip(); }
+  if (flipped) {
+    if (e.code==='Digit1') rate(0);
+    if (e.code==='Digit2') rate(1);
+    if (e.code==='Digit3') rate(2);
+    if (e.code==='Digit4') rate(3);
+  }
+});
+
+/* — 初始化 — */
+const urlMode = new URLSearchParams(location.search).get('mode');
+const wordParam = new URLSearchParams(location.search).get('word');
+if (urlMode) {
+  mode = urlMode;
+  document.querySelectorAll('.mode-card').forEach(c => {
+    c.classList.toggle('sel', c.dataset.mode === urlMode);
+  });
+}
+initMode();
+if (wordParam) {
+  // 单个单词练习
+  const target = WORD_LIST.find(w => w.id === +wordParam);
+  if (target) {
+    queue = [target]; idx = 0; sc = {again:0,hard:0,good:0,easy:0};
+    show('study'); showCard();
+  }
+}
+</script>
+</body>
+</html>

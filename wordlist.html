@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>单词表 · LC3000</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+    .filters .input-group { flex:1; min-width:180px; }
+    .filters select { width:auto; min-width:120px; }
+
+    .word-table { width:100%; border-collapse:collapse; }
+    .word-table th {
+      text-align:left; padding:11px 14px;
+      font-size:13px; font-weight:600; color:var(--text-secondary);
+      background:var(--bg); border-bottom:2px solid var(--border);
+    }
+    .word-table td { padding:13px 14px; border-bottom:1px solid var(--border-light); vertical-align:top; }
+    .word-table tbody tr:hover td { background:#fafbff; cursor:pointer; }
+
+    .wt-word    { font-size:17px; font-weight:700; }
+    .wt-phon    { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+    .wt-def     { font-size:13px; line-height:1.5; }
+    .wt-example { font-size:12px; color:var(--text-secondary); font-style:italic; margin-top:4px; }
+    .wt-pos     { display:inline-block; padding:2px 9px; border-radius:100px; font-size:11px; font-weight:500; background:var(--primary-light); color:var(--primary); margin-bottom:5px; }
+
+    .expand-panel td {
+      background: #f8faff !important;
+      border-bottom: 2px solid var(--border) !important;
+    }
+
+    .pagination { display:flex; justify-content:center; align-items:center; gap:6px; margin-top:20px; flex-wrap:wrap; }
+    .pg-btn {
+      width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+      border-radius:var(--radius-sm); border:1.5px solid var(--border); background:#fff;
+      cursor:pointer; font-size:13px; transition:var(--transition);
+    }
+    .pg-btn:hover, .pg-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .pg-btn.active { font-weight:700; }
+    .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+    .syn-tag { display:inline-block; padding:2px 8px; background:var(--primary-light); color:var(--primary); border-radius:100px; font-size:11px; margin:2px; }
+
+    .mastery-dot { width:9px; height:9px; border-radius:50%; display:inline-block; vertical-align:middle; margin-right:5px; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">📚
+  <a href="index.html" class="nav-brand">&nbsp;&nbsp;Longman Communication 3000</a>
+  <ul class="nav-menu">
+    <li><a href="index.html">🏠 首页</a></li>
+    <li><a href="wordlist.html">📖 单词表</a></li>
+    <li><a href="study.html">🎯 背单词</a></li>
+    <li><a href="stats.html">📊 统计</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">单词表</h1>
+    <p class="page-subtitle">共 <strong id="count-text">-</strong> 个单词 &nbsp;·&nbsp; 点击行展开详情</p>
+  </div>
+
+  <div class="card">
+    <!-- 筛选栏 -->
+    <div class="filters">
+      <div class="input-group">
+        <span class="input-icon">🔍</span>
+        <input type="text" class="input" id="q-search" placeholder="搜索单词或释义...">
+      </div>
+      <select class="input" id="q-freq">
+        <option value="">全部频率</option>
+        <option value="S1">S1 口语最高频</option>
+        <option value="S2">S2 口语次高频</option>
+        <option value="S3">S3 口语常用</option>
+        <option value="W1">W1 书面最高频</option>
+        <option value="W2">W2 书面次高频</option>
+        <option value="W3">W3 书面常用</option>
+      </select>
+      <select class="input" id="q-pos">
+        <option value="">全部词性</option>
+        <option value="n">名词</option>
+        <option value="v">动词</option>
+        <option value="adj">形容词</option>
+        <option value="adv">副词</option>
+        <option value="prep">介词</option>
+        <option value="conj">连词</option>
+        <option value="modal">情态动词</option>
+      </select>
+      <select class="input" id="q-status">
+        <option value="">全部状态</option>
+        <option value="0">未学习</option>
+        <option value="1">学习中</option>
+        <option value="2">初步掌握</option>
+        <option value="3">较为熟悉</option>
+        <option value="4">已掌握</option>
+      </select>
+      <button class="btn btn-outline btn-sm" id="btn-reset">重置</button>
+    </div>
+
+    <!-- 表格 -->
+    <div style="overflow-x:auto;">
+      <table class="word-table">
+        <thead>
+          <tr>
+            <th style="width:44px;">#</th>
+            <th style="width:170px;">单词</th>
+            <th style="width:120px;">频率</th>
+            <th>释义</th>
+            <th style="width:110px;">掌握程度</th>
+            <th style="width:80px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pager"></div>
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="words.js"></script>
+<script src="utils.js"></script>
+<script>
+const PAGE = 20;
+let page = 1, expandId = null, filtered = [];
+
+function applyFilter() {
+  const q   = document.getElementById('q-search').value.toLowerCase();
+  const fr  = document.getElementById('q-freq').value;
+  const pos = document.getElementById('q-pos').value;
+  const st  = document.getElementById('q-status').value;
+  const prg = Progress.getAll();
+
+  filtered = WORD_LIST.filter(w => {
+    if (q && !w.word.toLowerCase().includes(q) &&
+        !w.meanings.some(m => m.definition.toLowerCase().includes(q))) return false;
+    if (fr  && !w.frequency.includes(fr))   return false;
+    if (pos && !w.pos.toLowerCase().includes(pos)) return false;
+    if (st  !== '' && SM2.getMasteryLevel(prg[w.id]) !== +st) return false;
+    return true;
+  });
+
+  page = 1; expandId = null; render();
+}
+
+function render() {
+  document.getElementById('count-text').textContent = filtered.length;
+  const total = Math.ceil(filtered.length / PAGE);
+  if (page > total && total > 0) page = total;
+
+  const slice = filtered.slice((page-1)*PAGE, page*PAGE);
+  const prg   = Progress.getAll();
+  let html    = '';
+
+  slice.forEach((w, i) => {
+    const card  = prg[w.id];
+    const lv    = SM2.getMasteryLevel(card);
+    const color = SM2.getMasteryColor(lv);
+    const label = SM2.getMasteryLabel(lv);
+    const next  = card ? UI.fmtNextReview(card.nextReview) : '—';
+    const isExp = expandId === w.id;
+
+    html += `
+      <tr onclick="toggle(${w.id})" data-id="${w.id}">
+        <td style="color:var(--text-muted);font-size:13px;">${(page-1)*PAGE+i+1}</td>
+        <td>
+          <div class="wt-word">${w.word}</div>
+          <div class="wt-phon">/${w.phonetic}/</div>
+        </td>
+        <td>${UI.freqTags(w.frequency)}</td>
+        <td>
+          <span class="wt-pos">${UI.posLabel(w.pos)}</span>
+          <div class="wt-def">${w.meanings[0].definition}</div>
+          <div class="wt-example">"${w.meanings[0].example}"</div>
+        </td>
+        <td>
+          <span class="mastery-dot" style="background:${color};"></span>
+          <span style="font-size:12px;color:var(--text-secondary);">${label}</span>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${card ? '下次: '+next : ''}</div>
+        </td>
+        <td>
+          <a href="study.html?word=${w.id}" class="btn btn-sm btn-outline" onclick="event.stopPropagation()">练习</a>
+        </td>
+      </tr>`;
+
+    if (isExp) {
+      html += `
+        <tr class="expand-panel">
+          <td colspan="6">
+            <div style="padding:6px 4px;">
+              <div style="font-size:22px;font-weight:700;margin-bottom:4px;">
+                ${w.word}
+                <span style="font-size:16px;font-weight:400;color:var(--text-secondary);margin-left:10px;">/${w.phonetic}/</span>
+              </div>
+              <div style="margin-bottom:14px;">${UI.freqTags(w.frequency)}<span class="wt-pos" style="margin-left:6px;">${UI.posLabel(w.pos)}</span></div>
+              ${w.meanings.map((m,mi)=>`
+                <div style="margin-bottom:12px;">
+                  <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">释义${w.meanings.length>1?' '+(mi+1):''}：</div>
+                  <div style="font-size:15px;margin-bottom:6px;">${m.definition}</div>
+                  <div style="font-size:13px;color:var(--text-secondary);font-style:italic;padding:8px 12px;background:var(--bg);border-radius:6px;border-left:3px solid var(--primary);">"${m.example}"</div>
+                </div>`).join('')}
+              ${w.synonyms?.length ? `<div style="margin-top:8px;font-size:13px;color:var(--text-secondary);">同义词：${w.synonyms.map(s=>`<span class="syn-tag">${s}</span>`).join('')}</div>` : ''}
+              ${card ? `<div style="margin-top:12px;font-size:12px;color:var(--text-muted);background:var(--bg);padding:8px 12px;border-radius:var(--radius-sm);">📊 已复习 ${card.totalReviews} 次 | 正确 ${card.correctReviews} 次 | 正确率 ${card.totalReviews?Math.round(card.correctReviews/card.totalReviews*100):0}%</div>` : ''}
+            </div>
+          </td>
+        </tr>`;
+    }
+  });
+
+  if (!html) html = `<tr><td colspan="6" style="text-align:center;padding:48px;color:var(--text-muted);">未找到符合条件的单词</td></tr>`;
+  document.getElementById('tbody').innerHTML = html;
+  renderPager(total);
+}
+
+function toggle(id) { expandId = (expandId === id) ? null : id; render(); }
+
+function renderPager(total) {
+  if (total <= 1) { document.getElementById('pager').innerHTML = ''; return; }
+  let h = `<button class="pg-btn" onclick="go(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+  for (let i=1; i<=total; i++) {
+    if (i===1||i===total||Math.abs(i-page)<=2)
+      h += `<button class="pg-btn ${i===page?'active':''}" onclick="go(${i})">${i}</button>`;
+    else if (Math.abs(i-page)===3)
+      h += `<span style="color:var(--text-muted);padding:0 2px;">…</span>`;
+  }
+  h += `<button class="pg-btn" onclick="go(${page+1})" ${page===total?'disabled':''}>›</button>`;
+  document.getElementById('pager').innerHTML = h;
+}
+
+function go(p) { page = p; expandId = null; render(); scrollTo({top:0,behavior:'smooth'}); }
+
+['q-search','q-freq','q-pos','q-status'].forEach(id =>
+  document.getElementById(id).addEventListener('input', applyFilter)
+);
+document.getElementById('btn-reset').addEventListener('click', () => {
+  ['q-search','q-freq','q-pos','q-status'].forEach(id => {
+    const el = document.getElementById(id);
+    el.tagName === 'INPUT' ? (el.value='') : (el.value='');
+  });
+  applyFilter();
+});
+
+applyFilter();
+</script>
+</body>
+</html>

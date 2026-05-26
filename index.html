@@ -1,9 +1,213 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>LC3K Learning</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LC3000 · 朗文词汇学习</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .hero { text-align:center; padding:52px 0 40px; }
+    .hero h1 {
+      font-size:34px; font-weight:800; margin-bottom:10px;
+      background:linear-gradient(135deg,#4361ee,#7209b7);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .hero p { font-size:15px; color:var(--text-secondary); margin-bottom:32px; }
+    .hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+
+    .mastery-row {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:10px;
+    }
+    .mastery-row .bar-wrap {
+      width:90px; height:6px; background:var(--border-light);
+      border-radius:100px; overflow:hidden;
+    }
+
+    .plan-item {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 16px; border-radius:var(--radius-sm);
+      cursor:pointer; margin-bottom:10px; transition:var(--transition);
+    }
+    .plan-item:hover { filter:brightness(.97); }
+    .plan-item:last-child { margin-bottom:0; }
+    .plan-left { display:flex; align-items:center; gap:12px; }
+    .plan-info { font-size:14px; font-weight:600; }
+    .plan-sub  { font-size:12px; opacity:.75; margin-top:1px; }
+
+    .feature-card {
+      text-align:center; cursor:pointer;
+      transition:var(--transition);
+    }
+    .feature-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+    .feature-icon { font-size:38px; margin-bottom:12px; }
+    .feature-title { font-size:15px; font-weight:600; margin-bottom:6px; }
+    .feature-desc  { font-size:13px; color:var(--text-secondary); }
+  </style>
 </head>
 <body>
-    <h1>Hello, World!</h1>
+
+<nav class="navbar">📚 
+  <a href="index.html" class="nav-brand">&nbsp;&nbsp;Longman Communication 3000</a>
+  <ul class="nav-menu">
+    <li><a href="index.html">🏠 首页</a></li>
+    <li><a href="wordlist.html">📖 单词表</a></li>
+    <li><a href="study.html">🎯 背单词</a></li>
+    <li><a href="stats.html">📊 统计</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Longman Communication 3000</h1>
+    <p>掌握 3000 个高频英语词汇，覆盖 86% 的日常英语内容</p>
+    <div class="hero-btns">
+      <a href="study.html" class="btn btn-primary btn-lg" id="hero-study-btn">🎯 开始学习</a>
+      <a href="wordlist.html" class="btn btn-outline btn-lg">📖 浏览单词</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-4" style="margin-bottom:28px;">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#eef0fd;">📅</div>
+      <div><div class="stat-value" id="s-due">-</div><div class="stat-label">今日待复习</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--success-light);">✅</div>
+      <div><div class="stat-value" id="s-today">-</div><div class="stat-label">今日已学习</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--warning-light);">🔥</div>
+      <div><div class="stat-value" id="s-streak">-</div><div class="stat-label">连续学习天</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--purple-light);">🏆</div>
+      <div><div class="stat-value" id="s-master">-</div><div class="stat-label">已掌握单词</div></div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="margin-bottom:28px;">
+
+    <!-- 学习进度 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">学习进度</span>
+        <span id="prog-text" style="font-size:13px;color:var(--text-secondary);"></span>
+      </div>
+      <div class="progress" style="height:10px;margin-bottom:20px;">
+        <div class="progress-bar" id="prog-bar" style="width:0%"></div>
+      </div>
+      <div id="mastery-list"></div>
+    </div>
+
+    <!-- 今日计划 -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">今日学习计划</span></div>
+      <div id="plan-list"></div>
+    </div>
+
+  </div>
+
+  <!-- Feature Cards -->
+  <div class="grid grid-3">
+    <div class="card feature-card" onclick="location.href='study.html'">
+      <div class="feature-icon">🃏</div>
+      <div class="feature-title">单词卡片</div>
+      <div class="feature-desc">基于艾宾浩斯记忆曲线，智能安排复习间隔</div>
+    </div>
+    <div class="card feature-card" onclick="location.href='wordlist.html'">
+      <div class="feature-icon">📖</div>
+      <div class="feature-title">单词浏览</div>
+      <div class="feature-desc">查看所有词汇，包含音标、释义、例句、同义词</div>
+    </div>
+    <div class="card feature-card" onclick="location.href='stats.html'">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">学习统计</div>
+      <div class="feature-desc">追踪学习历史，查看掌握情况与进度趋势</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="words.js"></script>
+<script src="utils.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const stats  = Progress.getStats(WORD_LIST);
+  const streak = Streak.get();
+
+  document.getElementById('s-due').textContent    = stats.due;
+  document.getElementById('s-today').textContent  = History.todayStudied();
+  document.getElementById('s-streak').textContent = streak.count;
+  document.getElementById('s-master').textContent = stats.master;
+
+  const pct = stats.total ? Math.round(stats.studied / stats.total * 100) : 0;
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = `${stats.studied} / ${stats.total} 词`;
+
+  // 掌握层级列表
+  const levels = [
+    { label:'未学习',   count:stats.new,      color:'#94a3b8' },
+    { label:'学习中',   count:stats.learning, color:'#f59e0b' },
+    { label:'初步掌握', count:stats.young,    color:'#60a5fa' },
+    { label:'较为熟悉', count:stats.mature,   color:'#a78bfa' },
+    { label:'已掌握',   count:stats.master,   color:'#34d399' }
+  ];
+  document.getElementById('mastery-list').innerHTML = levels.map(l => {
+    const w = stats.total ? Math.round(l.count / stats.total * 100) : 0;
+    return `
+      <div class="mastery-row">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:9px;height:9px;border-radius:50%;background:${l.color};display:inline-block;"></span>
+          <span style="font-size:13px;color:var(--text-secondary);">${l.label}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="bar-wrap"><div style="height:100%;width:${w}%;background:${l.color};border-radius:100px;"></div></div>
+          <span style="font-size:13px;font-weight:500;min-width:28px;text-align:right;">${l.count}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // 今日计划
+  document.getElementById('plan-list').innerHTML = `
+    <div class="plan-item" style="background:var(--primary-light);" onclick="location.href='study.html?mode=due'">
+      <div class="plan-left">
+        <span style="font-size:22px;">🔄</span>
+        <div>
+          <div class="plan-info" style="color:var(--primary);">复习到期单词</div>
+          <div class="plan-sub" style="color:var(--primary);">${stats.due} 个单词待复习</div>
+        </div>
+      </div>
+      <span style="color:var(--primary);">→</span>
+    </div>
+    <div class="plan-item" style="background:var(--success-light);" onclick="location.href='study.html?mode=new'">
+      <div class="plan-left">
+        <span style="font-size:22px;">✨</span>
+        <div>
+          <div class="plan-info" style="color:#059669;">学习新单词</div>
+          <div class="plan-sub" style="color:#059669;">${stats.new} 个新单词</div>
+        </div>
+      </div>
+      <span style="color:#059669;">→</span>
+    </div>
+    <div class="plan-item" style="background:var(--warning-light);" onclick="location.href='study.html?mode=all'">
+      <div class="plan-left">
+        <span style="font-size:22px;">📚</span>
+        <div>
+          <div class="plan-info" style="color:#d97706;">随机练习</div>
+          <div class="plan-sub" style="color:#d97706;">所有 ${stats.total} 个单词</div>
+        </div>
+      </div>
+      <span style="color:#d97706;">→</span>
+    </div>`;
+
+  if (stats.due > 0)
+    document.getElementById('hero-study-btn').textContent = `🎯 开始复习 (${stats.due})`;
+});
+</script>
 </body>
 </html>
